@@ -1,0 +1,26 @@
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# ---- Django ----
+db.sqlite3
+/staticfiles/
+media/
+
+# ---- Secrets / local config ----
+.env
+
+# ---- Broken LFS pointer (unused nested copy). The real model is
+#      classifier/ai_model/saved/skin_model_full.pth and IS committed. ----
+classifier/ai_model/classifier/
+
+# ---- IDE / OS ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

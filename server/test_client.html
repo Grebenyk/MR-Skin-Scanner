@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skin-AI · Remote Test Client</title>
+<style>
+  :root { --accent:#2575fc; --accent2:#6a11cb; }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; min-height:100vh; font-family:'Segoe UI',Tahoma,sans-serif;
+    background:linear-gradient(135deg,#f5f7fa,#c3cfe2);
+    display:flex; justify-content:center; align-items:flex-start; padding:32px 16px;
+  }
+  .card {
+    background:#fff; width:100%; max-width:560px; border-radius:18px;
+    box-shadow:0 10px 30px rgba(0,0,0,.15); padding:28px;
+  }
+  h1 { margin:0 0 4px; font-size:1.5rem; }
+  p.sub { margin:0 0 20px; color:#666; font-size:.9rem; }
+  label { display:block; font-weight:600; margin:14px 0 6px; font-size:.9rem; }
+  input[type=text], input[type=file] {
+    width:100%; padding:10px 12px; border:1px solid #ccd; border-radius:10px; font-size:.95rem;
+  }
+  button {
+    margin-top:18px; width:100%; padding:13px; border:none; border-radius:50px;
+    color:#fff; font-weight:700; font-size:1.05rem; cursor:pointer;
+    background:linear-gradient(90deg,var(--accent2),var(--accent));
+  }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  #preview { margin-top:16px; max-width:100%; max-height:260px; border-radius:12px; display:none; }
+  .result { margin-top:20px; padding:16px; border-radius:12px; background:#f5f7fb; display:none; }
+  .result.ok { border-left:5px solid #28a745; }
+  .result.err { border-left:5px solid #dc3545; background:#fdf2f2; }
+  .pred { font-size:1.3rem; font-weight:700; color:#1a7f37; margin-bottom:8px; }
+  pre { white-space:pre-wrap; word-wrap:break-word; font-size:.9rem; margin:0; color:#333; }
+  .hint { font-size:.78rem; color:#888; margin-top:4px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Skin-AI — Remote Test</h1>
+  <p class="sub">Send an image to your remote server and see the diagnosis it returns.</p>
+
+  <label for="server">Server base URL</label>
+  <input type="text" id="server" placeholder="http://YOUR_SERVER_IP:8000">
+  <div class="hint">Example: http://203.0.113.5:8000 — no trailing slash. The page will call <code>/api/predict/</code>.</div>
+
+  <label for="file">Skin image</label>
+  <input type="file" id="file" accept="image/*">
+  <img id="preview" alt="preview">
+
+  <button id="send" disabled>Analyze</button>
+
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const fileInput = $('file'), preview = $('preview'), sendBtn = $('send'),
+        result = $('result'), serverInput = $('server');
+
+  // Remember the last server URL during the session.
+  let lastServer = '';
+
+  function refreshState() {
+    sendBtn.disabled = !(fileInput.files.length && serverInput.value.trim());
+  }
+  serverInput.addEventListener('input', refreshState);
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files[0];
+    if (f) {
+      preview.src = URL.createObjectURL(f);
+      preview.style.display = 'block';
+    }
+    refreshState();
+  });
+
+  function show(cls, html) {
+    result.className = 'result ' + cls;
+    result.style.display = 'block';
+    result.innerHTML = html;
+  }
+
+  sendBtn.addEventListener('click', async () => {
+    const base = serverInput.value.trim().replace(/\/+$/, '');
+    const url = base + '/api/predict/';
+    const fd = new FormData();
+    fd.append('image', fileInput.files[0]);
+
+    sendBtn.disabled = true;
+    show('', 'Sending to <b>' + url + '</b> …');
+
+    try {
+      const resp = await fetch(url, { method: 'POST', body: fd });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok || !data) {
+        show('err', 'Server returned status ' + resp.status +
+                    (data && data.error ? '<br>' + data.error : ''));
+      } else if (data.success) {
+        show('ok',
+          '<div class="pred">Diagnosis: ' + (data.prediction || '—') + '</div>' +
+          '<pre>' + (data.stats_text || '') + '</pre>');
+      } else {
+        show('err', 'Error: ' + (data.error || 'unknown'));
+      }
+    } catch (e) {
+      show('err', 'Request failed: ' + e.message +
+                  '<br><span class="hint">Check the server URL, that the server is running, ' +
+                  'and that the firewall allows the port.</span>');
+    } finally {
+      sendBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
